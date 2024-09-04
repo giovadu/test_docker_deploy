@@ -3,7 +3,7 @@ package routes
 import (
 	"net/http"
 
-	"test_dcoker_deploy/http/handlers"
+	"notifcations_server/http/handlers"
 
 	"github.com/gorilla/mux"
 )
@@ -14,6 +14,6 @@ func Router() *mux.Router {
 	router = mux.NewRouter()
 	router.MethodNotAllowedHandler = http.HandlerFunc(handlers.MethodNotAllowedHandler)
 	router.NotFoundHandler = http.HandlerFunc(handlers.NotFoundHandler)
-	router.HandleFunc("/test", handlers.Test).Methods("GET")
+	router.HandleFunc("/send-notification", handlers.SendNotificationHandler).Methods("POST")
 	return router
 }

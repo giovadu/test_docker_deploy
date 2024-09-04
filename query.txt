@@ -1,0 +1,79 @@
+//  ---------------------------- CONSULTA ORIGINAL ----------------------------
+// select
+//   `tc_events`.`id` AS `id`,
+//   `tc_events`.`type` AS `type`,
+//   `tc_positions`.`servertime` AS `servertime`,
+//   `tc_events`.`deviceid` AS `deviceid`,
+//   `tc_events`.`positionid` AS `positionid`,
+//   `tc_events`.`geofenceid` AS `geofenceid`,
+//   `tc_events`.`attributes` AS `attributes`,
+//   `tc_events`.`sended` AS `sended`,
+//   `tc_events`.`user` AS `user`,
+//   if ((`tc_positions`.`speed` <> ''), concat(format((`tc_positions`.`speed` * 1.852), 0), ' Km/h'), '') AS `speed`,
+//     if ((`tc_geofences`.`name` <> ''), `tc_geofences`.`name`, '') AS `geofencename`,
+//   `tc_devices`.`appname` AS `appname`,
+//   `tc_devices`.`name` AS `name`,
+//   `tc_devices`.`model` AS `model`,
+//   `tc_devices`.`account` AS `account`,
+//   `tc_positions`.`address` AS `address`,
+//   `tc_notification_locate`.`translate` AS `event`,
+//   if ((`tc_notification_locate1`.`translate` <> ''), `tc_notification_locate1`.`translate`, '') AS `detail`
+// from
+//   ((((((((`tc_events`
+//   join `tc_devices` on ((`tc_events`.`deviceid` = `tc_devices`.`id`)))
+//   left join `tc_notification_locate` on ((`tc_events`.`type` = `tc_notification_locate`.`original`)))
+//   left join `tc_notification_locate` `tc_notification_locate1` on ((`tc_notification_locate1`.`original` = convert (`json_extract_string`(
+//     `tc_events`.`attributes`, 'alarm') using utf8))))
+//     )))
+//   left join `tc_geofences` on ((`tc_events`.`geofenceid` = `tc_geofences`.`id`)))
+//   join `tc_positions` on ((`tc_positions`.`id` = `tc_events`.`positionid`)))
+// where
+//  ((((`tc_events`.`sended` = 0) and
+//   (`tc_positions`.`servertime` >(now() - interval 1 minute)))) and
+//   (`tc_events`.`positionid` > 0))
+//   and `tc_events`.type <> 'commandResult'
+//   and `tc_devices`.active = 1
+//   and tc_events.id > :varid
+//   group by
+//   `tc_events`.`deviceid`,
+//   `tc_events`.`positionid`,
+//   `tc_events`.`type`,
+//   `tc_events`.`attributes`
+// limit
+// 500
+
+// ---------------------------- CONSULTA MEJORADA ----------------------------
+// SELECT
+//   e.id AS id,
+//   e.type AS type,
+//   p.servertime AS servertime,
+//   e.deviceid AS deviceid,
+//   e.positionid AS positionid,
+//   e.geofenceid AS geofenceid,
+//   e.attributes AS attributes,
+//   e.sended AS sended,
+//   e.user AS user,
+//   IF (p.speed IS NOT NULL, CONCAT(FORMAT((p.speed * 1.852), 0), ' Km/h'), '') AS speed,
+//   IF (g.name IS NOT NULL, g.name, '') AS geofencename,
+//   d.appname AS appname,
+//   d.name AS name,
+//   d.model AS model,
+//   d.account AS account,
+//   p.address AS address,
+//   nl.translate AS event,
+//   IF (nl1.translate IS NOT NULL, nl1.translate, '') AS detail
+// FROM
+//   tc_events e
+//   JOIN tc_devices d ON e.deviceid = d.id
+//   JOIN tc_positions p ON p.id = e.positionid
+//   LEFT JOIN tc_notification_locate nl ON e.type = nl.original
+//   LEFT JOIN tc_notification_locate nl1 ON nl1.original = JSON_UNQUOTE(JSON_EXTRACT(e.attributes, '$.alarm'))
+//   LEFT JOIN tc_geofences g ON e.geofenceid = g.id
+// WHERE
+//   e.sended = 0
+//   AND p.servertime > (NOW() - INTERVAL 1 MINUTE)
+//   AND e.positionid > 0
+//   AND e.type <> 'commandResult'
+//   AND d.active = 1
+//   AND e.id > :varid
+// LIMIT 500;
