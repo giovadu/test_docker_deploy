@@ -34,7 +34,7 @@ func (s *Server) Initialize(r *mux.Router) {
 func (s *Server) Run() {
 	http.Handle("/", Cors.Handler(s.Router))
 
-	addrr := ":1234"
+	addrr := ":2020"
 
 	log.Println("Server running on", addrr)
 

@@ -43,37 +43,37 @@
 // 500
 
 // ---------------------------- CONSULTA MEJORADA ----------------------------
-// SELECT
-//   e.id AS id,
-//   e.type AS type,
-//   p.servertime AS servertime,
-//   e.deviceid AS deviceid,
-//   e.positionid AS positionid,
-//   e.geofenceid AS geofenceid,
-//   e.attributes AS attributes,
-//   e.sended AS sended,
-//   e.user AS user,
-//   IF (p.speed IS NOT NULL, CONCAT(FORMAT((p.speed * 1.852), 0), ' Km/h'), '') AS speed,
-//   IF (g.name IS NOT NULL, g.name, '') AS geofencename,
-//   d.appname AS appname,
-//   d.name AS name,
-//   d.model AS model,
-//   d.account AS account,
-//   p.address AS address,
-//   nl.translate AS event,
-//   IF (nl1.translate IS NOT NULL, nl1.translate, '') AS detail
-// FROM
-//   tc_events e
-//   JOIN tc_devices d ON e.deviceid = d.id
-//   JOIN tc_positions p ON p.id = e.positionid
-//   LEFT JOIN tc_notification_locate nl ON e.type = nl.original
-//   LEFT JOIN tc_notification_locate nl1 ON nl1.original = JSON_UNQUOTE(JSON_EXTRACT(e.attributes, '$.alarm'))
-//   LEFT JOIN tc_geofences g ON e.geofenceid = g.id
-// WHERE
-//   e.sended = 0
-//   AND p.servertime > (NOW() - INTERVAL 1 MINUTE)
-//   AND e.positionid > 0
-//   AND e.type <> 'commandResult'
-//   AND d.active = 1
-//   AND e.id > :varid
-// LIMIT 500;
+  SELECT
+    e.id AS id,
+    e.type AS type,
+    p.servertime AS servertime,
+    e.deviceid AS deviceid,
+    e.positionid AS positionid,
+    e.geofenceid AS geofenceid,
+    e.attributes AS attributes,
+    e.sended AS sended,
+    e.user AS user,
+    IF (p.speed IS NOT NULL, CONCAT(FORMAT((p.speed * 1.852), 0), ' Km/h'), '') AS speed,
+    IF (g.name IS NOT NULL, g.name, '') AS geofencename,
+    d.appname AS appname,
+    d.name AS name,
+    d.model AS model,
+    d.account AS account,
+    p.address AS address,
+    nl.translate AS event,
+    IF (nl1.translate IS NOT NULL, nl1.translate, '') AS detail
+  FROM
+    tc_events e
+    JOIN tc_devices d ON e.deviceid = d.id
+    JOIN tc_positions p ON p.id = e.positionid
+    LEFT JOIN tc_notification_locate nl ON e.type = nl.original
+    LEFT JOIN tc_notification_locate nl1 ON nl1.original = JSON_UNQUOTE(JSON_EXTRACT(e.attributes, '$.alarm'))
+    LEFT JOIN tc_geofences g ON e.geofenceid = g.id
+  WHERE
+    e.sended = 0
+    AND p.servertime > (NOW() - INTERVAL 1 MINUTE)
+    AND e.positionid > 0
+    AND e.type <> 'commandResult'
+    AND d.active = 1
+    AND e.id > :varid
+  LIMIT 500;
