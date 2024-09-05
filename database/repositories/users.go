@@ -36,16 +36,17 @@ func GetEventsWithLimit(startID int, limit int) (events []models.Events, err err
 	    tracker.tc_geofences g ON e.geofenceid = g.id
 	WHERE
 	    e.sended = 0
-	    AND p.servertime > (NOW() - INTERVAL 3 MINUTE)
+	    AND p.servertime > (NOW() - INTERVAL 1 MINUTE)
 	    AND e.positionid > 0
 	    AND e.type <> 'commandResult'
 	    AND d.active = 1
 	    AND (et.translate IS NOT NULL OR nl1.translate IS NOT NULL)
-		AND e.id > %d
+		
 	ORDER BY e.id
 	    LIMIT %d;
-    `, startID, limit)
-
+    `, limit)
+	//AND e.id > %d
+	fmt.Printf("Query startID: %d", startID)
 	// Prepara la consulta
 	stmt, err := db.Prepare(query)
 	if err != nil {

@@ -13,7 +13,7 @@ var db *sql.DB
 
 func InitMySQL() {
 	db = initMySQL()
-	db.SetConnMaxLifetime(time.Minute * 5)
+	db.SetConnMaxLifetime(time.Minute * 1)
 	db.SetMaxIdleConns(10)
 	db.SetMaxOpenConns(100)
 }

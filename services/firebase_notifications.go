@@ -24,7 +24,7 @@ func GetAccessTokenWithCache() (string, error) {
 	}
 
 	// Obtener el TokenRefresher que maneja el refresco del token
-	tokenRefresher, err := repositories.GetFirebaseClient("gd-notificacionesandroid-firebase-adminsdk-2v5rt-c75d589044.json")
+	tokenRefresher, err := repositories.GetFirebaseClient("gd-notificacionesandroid-firebase-adminsdk-2v5rt-090a3f0a89.json")
 	if err != nil {
 		return "", err
 	}

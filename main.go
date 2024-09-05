@@ -11,99 +11,113 @@ import (
 	"time"
 )
 
-var startID int = 0
+var minID int = 0
+
+var (
+	verificationMessages []string
+	unregisteredTokens   []string
+	successCount         int
+	failCount            int
+)
 
 func main() {
 	app.LoadEnv() // Cargar los datos del .env
 	app.InitMySQL()
-	processEvents(startID)
+	services.GetAccessTokenWithCache()
+
+	for {
+		startTime := time.Now() // Tiempo de inicio del ciclo
+		const numWorkers = 3
+
+		var wg sync.WaitGroup
+		var mu sync.RWMutex
+
+		for i := 1; i <= numWorkers; i++ {
+			wg.Add(1)
+			go func(workerID int) {
+				totalAux, succAux, failAux := processEvents(&mu)
+				totalTime := time.Since(startTime)
+				log.Printf("Ciclo completado! eventos procesados en %v, %d eventos procesados, %d exitosos, %d fallidos", totalTime, totalAux, succAux, failAux)
+				wg.Done()
+			}(i)
+		}
+		wg.Wait()
+	}
 }
 
-func processEvents(id int) {
-
-	startTime := time.Now() // Tiempo de inicio del ciclo
-
-	eventRepom, err := repositories.GetEventsWithLimit(id, 700)
+func processEvents(mu *sync.RWMutex) (int, int, int) {
+	mu.Lock()
+	eventRepom, err := repositories.GetEventsWithLimit(minID, 500)
+	if len(eventRepom) > 0 {
+		minID = eventRepom[len(eventRepom)-1].ID // Asume que los eventos están ordenados por ID
+		log.Printf("[Worker cambió el id a %d ", minID)
+	}
+	mu.Unlock()
 	if err != nil {
-		log.Printf("[Worker %d] error obteniendo eventos: %v", id, err)
-		return
+		log.Printf("[Worker error obteniendo eventos: %v", err)
+		return 0, 0, 0
 	}
 
-	var wgEvents sync.WaitGroup
-
-	errorChannel := make(chan error, len(eventRepom)) // Canal para capturar errores
-	var successCount, failCount int
-
-	// Slice para acumular los mensajes de verificación
-	var verificationMessages []string
-	var unregisteredTokens []string
-
+	var wg sync.WaitGroup
 	for i := 0; i < len(eventRepom); i++ {
-		wgEvents.Add(1) // Añadir un contador al WaitGroup para cada evento
+		wg.Add(1)
 		go func(event models.Events) {
-			defer wgEvents.Done() // Decrementa el contador cuando la goroutine finaliza
-
-			users, err := repositories.GetUsersToSendNotifications(event.Plate)
-			if err != nil {
-				errorChannel <- fmt.Errorf("error obteniendo usuarios para %s: %v", event.Plate, err)
-				failCount++
-				return
-			}
-
-			var wgUsers sync.WaitGroup
-			for j := 0; j < len(users); j++ {
-				wgUsers.Add(1)
-				go func(user models.UserInfo) {
-					defer wgUsers.Done()
-
-					alert := fmt.Sprintf("Alerta Vehículo %s", event.Plate)
-
-					err := services.SendFirebaseNotification(user.Token, alert, event.Event)
-					var eventMessage string
-					if err != nil {
-						unregisteredTokens = append(unregisteredTokens, user.Token)
-						eventMessage = fmt.Sprintf("%s %s %d Enviando push a %s %s Dispositivo: %s error: %v", event.ServerTime, user.AppName, event.ID, user.Name, user.So, event.Plate, err)
-						errorChannel <- err
-						failCount++
-					} else {
-						eventMessage = fmt.Sprintf("%s %s %d Enviando push a %s %s Dispositivo: %s exitoso", event.ServerTime, user.AppName, event.ID, user.Name, user.So, event.Plate)
-						successCount++
-					}
-
-					// Acumular los mensajes de verificación
-					verificationMessages = append(verificationMessages, eventMessage)
-
-				}(users[j])
-			}
-
-			// Espera a que todas las goroutines de usuarios terminen
-			wgUsers.Wait()
+			defer wg.Done()
+			GetUsersToSendNotifications(event, mu)
 		}(eventRepom[i])
 	}
 
-	// Espera a que todas las goroutines de eventos terminen
-	wgEvents.Wait()
-	close(errorChannel)
-
-	// Maneja los errores capturados
-	log.Println(len(errorChannel))
+	wg.Wait()
 
 	// Insertar todos los mensajes de verificación en la base de datos
 	if len(verificationMessages) > 0 {
 		go repositories.BatchInsertVerificationMessages("gpsec", verificationMessages)
 	}
 	if len(unregisteredTokens) > 0 {
-		err := repositories.BatchDeleteTokens(unregisteredTokens)
-		if err != nil {
-			log.Printf("Total eliminados: %d  ", len(unregisteredTokens))
-		}
+		go repositories.BatchDeleteTokens(unregisteredTokens)
 	}
 
 	totalEvents := successCount + failCount
-	// Tiempo de fin del ciclo
-	totalTime := time.Since(startTime)
+	return totalEvents, successCount, failCount
+}
 
-	// Imprimir estadísticas del ciclo
-	log.Printf("[Worker %d] Ciclo completado: %d eventos procesados en %v", id, totalEvents, totalTime)
-	log.Printf("[Worker %d] Ciclo completado: %d eventos procesados, %d exitosos, %d fallidos", id, totalEvents, successCount, failCount)
+func sendNotification(user models.UserInfo, eventRepom models.Events, mu *sync.RWMutex) {
+	alert := fmt.Sprintf("Alerta Vehículo %s", eventRepom.Plate)
+
+	err := services.SendFirebaseNotification(user.Token, alert, eventRepom.Event)
+	var eventMessage string
+
+	mu.RLock()
+	defer mu.RUnlock()
+
+	if err != nil {
+		unregisteredTokens = append(unregisteredTokens, user.Token)
+		eventMessage = fmt.Sprintf("%s %s %d Enviando push a %s %s Dispositivo: %s error: %v", eventRepom.ServerTime, user.AppName, eventRepom.ID, user.Name, user.So, eventRepom.Plate, err)
+		failCount++
+	} else {
+		eventMessage = fmt.Sprintf("%s %s %d Enviando push a %s %s Dispositivo: %s exitoso", eventRepom.ServerTime, user.AppName, eventRepom.ID, user.Name, user.So, eventRepom.Plate)
+		successCount++
+	}
+
+	// Acumular los mensajes de verificación
+	verificationMessages = append(verificationMessages, eventMessage)
+}
+
+func GetUsersToSendNotifications(eventRepom models.Events, mu *sync.RWMutex) {
+	users, err := repositories.GetUsersToSendNotifications(eventRepom.Plate)
+	if err != nil {
+		log.Printf("error obteniendo usuarios de vehiculo %s: %v", eventRepom.Plate, err)
+		return
+	}
+
+	var wg sync.WaitGroup
+	for j := 0; j < len(users); j++ {
+		wg.Add(1)
+		go func(user models.UserInfo) {
+			defer wg.Done()
+			sendNotification(user, eventRepom, mu)
+		}(users[j])
+	}
+
+	wg.Wait()
 }
