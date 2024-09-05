@@ -52,7 +52,7 @@ func SendFirebaseNotification(deviceToken, title, body string) error {
 	}
 
 	// Obtener el TokenRefresher para usar el cliente
-	tokenRefresher, err := repositories.GetFirebaseClient("gd-notificacionesandroid-firebase-adminsdk-2v5rt-c75d589044.json")
+	tokenRefresher, err := repositories.GetFirebaseClient("gd-notificacionesandroid-firebase-adminsdk-2v5rt-090a3f0a89.json")
 	if err != nil {
 		return err
 	}
