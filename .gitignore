@@ -23,3 +23,6 @@ go.work.sum
 
 # env file
 .env
+gd-notificacionesandroid-firebase-adminsdk-2v5rt-c75d589044.json
+tmp/
+__debug_bin*
