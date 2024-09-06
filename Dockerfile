@@ -22,6 +22,8 @@ WORKDIR /app
 COPY .env .
 
 COPY gd-notificacionesandroid-firebase-adminsdk-2v5rt-090a3f0a89.json .
+
+COPY notificaciones-push-1af7d-firebase-adminsdk-u0rd4-62ea0a3f0a.json .
 # Exponemos el puerto 1909
 EXPOSE 2020
 

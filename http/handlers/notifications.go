@@ -6,7 +6,7 @@ import (
 	"notifcations_server/utils/io/response"
 )
 
-func SendNotificationHandler(w http.ResponseWriter, r *http.Request) {
+func SendNotificationHandlerV1(w http.ResponseWriter, r *http.Request) {
 	deviceToken := r.FormValue("device_token") // Obtenido del cuerpo de la solicitud
 	title := r.FormValue("title")
 	body := r.FormValue("body")
@@ -15,7 +15,23 @@ func SendNotificationHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Llamada al servicio para enviar la notificación
-	err := services.SendFirebaseNotification(deviceToken, title, body)
+	err := services.SendFirebaseNotificationV1(deviceToken, title, body)
+	if err != nil {
+		response.Error(err.Error(), http.StatusInternalServerError, w)
+		return
+	}
+	response.Success("Notificación enviada exitosamente", http.StatusOK, w)
+}
+func SendNotificationHandlerV2(w http.ResponseWriter, r *http.Request) {
+	deviceToken := r.FormValue("device_token") // Obtenido del cuerpo de la solicitud
+	title := r.FormValue("title")
+	body := r.FormValue("body")
+	if deviceToken == "" || title == "" || body == "" {
+		response.Error("device_token, title y body son requeridos", http.StatusBadRequest, w)
+		return
+	}
+	// Llamada al servicio para enviar la notificación
+	err := services.SendFirebaseNotificationV2(deviceToken, title, body)
 	if err != nil {
 		response.Error(err.Error(), http.StatusInternalServerError, w)
 		return

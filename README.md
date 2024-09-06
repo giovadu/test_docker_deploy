@@ -7,5 +7,5 @@ REEMPLAZAR CONTENEDOR
 docker ps
 docker stop CONTAINER ID
 docker rm CONTAINER ID
-docker pull pipe919/dockerhub:notifcations_server
-docker run -d -p 2122:2122 --restart always pipe919/dockerhub:notifcations_server
+docker pull pipe919/notifcations_server
+docker run -d -p 2122:2122 --restart always pipe919/notifcations_server
