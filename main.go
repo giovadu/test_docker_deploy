@@ -6,6 +6,7 @@ import (
 	"notifcations_server/app"
 	"notifcations_server/database/models"
 	"notifcations_server/database/repositories"
+	"notifcations_server/http/routes"
 	"notifcations_server/services"
 	"sync"
 	"time"
@@ -21,30 +22,34 @@ var (
 )
 
 func main() {
-	app.LoadEnv() // Cargar los datos del .env
-	app.InitMySQL()
+
+	server := app.NewServer()
+	router := routes.Router()
 	services.GetAccessTokenWithCache()
+	server.Initialize(router)
+	server.Run()
 
-	for {
-		startTime := time.Now() // Tiempo de inicio del ciclo
-		const numWorkers = 3
-
-		var wg sync.WaitGroup
-		var mu sync.RWMutex
-
-		for i := 1; i <= numWorkers; i++ {
-			wg.Add(1)
-			go func(workerID int) {
-				totalAux, succAux, failAux := processEvents(&mu)
-				totalTime := time.Since(startTime)
-				log.Printf("Ciclo completado! eventos procesados en %v, %d eventos procesados, %d exitosos, %d fallidos", totalTime, totalAux, succAux, failAux)
-				wg.Done()
-			}(i)
-		}
-		wg.Wait()
-	}
 }
+func proces() {
 
+	startTime := time.Now() // Tiempo de inicio del ciclo
+	const numWorkers = 3
+
+	var wg sync.WaitGroup
+	var mu sync.RWMutex
+
+	for i := 1; i <= numWorkers; i++ {
+		wg.Add(1)
+		go func(workerID int) {
+			totalAux, succAux, failAux := processEvents(&mu)
+			totalTime := time.Since(startTime)
+			log.Printf("Ciclo completado! eventos procesados en %v, %d eventos procesados, %d exitosos, %d fallidos", totalTime, totalAux, succAux, failAux)
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+
+}
 func processEvents(mu *sync.RWMutex) (int, int, int) {
 	mu.Lock()
 	eventRepom, err := repositories.GetEventsWithLimit(minID, 500)

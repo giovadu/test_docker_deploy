@@ -1,6 +1,7 @@
 package services
 
 import (
+	"log"
 	"notifcations_server/database/repositories"
 	"sync"
 	"time"
@@ -22,7 +23,7 @@ func GetAccessTokenWithCache() (string, error) {
 	if time.Now().Before(tokenExpiryTime) && cachedToken != "" {
 		return cachedToken, nil
 	}
-
+	log.Println("Creando un nuevo token de acceso")
 	// Obtener el TokenRefresher que maneja el refresco del token
 	tokenRefresher, err := repositories.GetFirebaseClient("gd-notificacionesandroid-firebase-adminsdk-2v5rt-090a3f0a89.json")
 	if err != nil {
