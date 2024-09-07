@@ -1,0 +1,84 @@
+package main
+
+import (
+	"fmt"
+	"log"
+	"notification_server/app_services"
+	"notification_server/repositories"
+	"notification_server/utils"
+	"sync"
+	"time"
+)
+
+var startID int = 0
+
+func main() {
+	app_services.LoadEnv()
+	app_services.InitMySQL()
+	app_services.InitFirebase()
+
+	const numWorkers = 1
+	const batchSize = 500
+
+	var wg sync.WaitGroup
+
+	failTokensChan := make(chan string)
+	statusMessages := make(chan string)
+
+	startTime := time.Now()
+	//
+	startID = processEventWithOutLimit("inicial", batchSize, failTokensChan, statusMessages)
+
+	for i := 0; i < numWorkers; i++ {
+		minID := startID + i*batchSize
+		maxID := minID + batchSize - 1
+		wg.Add(1)
+		go func(workerName string, minID, maxID int) {
+			processEventsWithLimit(workerName, minID, maxID, failTokensChan, statusMessages)
+		}(fmt.Sprintln("%d", (i+1)), minID, maxID)
+	}
+
+	wg.Wait()
+
+	timeSince := time.Since(startTime)
+	close(failTokensChan)
+	close(statusMessages)
+
+	log.Printf("Este proceso demoró: %v fueron total fallos %v envios totales %v", timeSince, len(failTokensChan), len(statusMessages))
+
+}
+
+func processEventWithOutLimit(workerID string, batchSize int, failTokenChann chan string, statusMessages chan string) int {
+	eventRepom, lastId, err := repositories.GetEventsWithOutstartID(batchSize)
+	if err != nil || len(eventRepom) == 0 {
+		log.Printf("[Worker %s] Error obteniendo eventos: %v", workerID, err)
+		return 0
+	}
+
+	messags := utils.GenetateMessages(eventRepom)
+
+	repositories.SengMessage(messags, eventRepom, failTokenChann, statusMessages)
+
+	log.Printf("[Worker %s] Terminó de procesar eventos", workerID)
+	return lastId
+}
+
+func processEventsWithLimit(workername string, minID int, maxID int, failTokenChann chan string, statusMessages chan string) int {
+	eventRepom, limit, err := repositories.GetEventsWithLimit(minID, maxID)
+	if err != nil {
+		log.Printf("[Worker %s] Error obteniendo eventos: %v", workername, err)
+		// Si hay un error, retornar el mismo valor de startID
+		return minID
+	}
+
+	if len(eventRepom) == 0 {
+		// Si no hay más eventos, terminar el worker
+		return maxID
+	}
+
+	messags := utils.GenetateMessages(eventRepom)
+
+	repositories.SengMessage(messags, eventRepom, failTokenChann, statusMessages)
+
+	return limit
+}

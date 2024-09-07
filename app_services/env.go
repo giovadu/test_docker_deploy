@@ -1,4 +1,4 @@
-package app
+package app_services
 
 import (
 	env "github.com/joho/godotenv"
