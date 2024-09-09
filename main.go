@@ -3,120 +3,98 @@ package main
 import (
 	"log"
 	"notification_server/app_services"
-	"notification_server/models"
 	"notification_server/repositories"
 	"notification_server/utils"
-	"sync"
 	"time"
-)
 
-var StartID int = 0
-var failedTokens []string
-var Messages []string
-var EventsReported []models.Events
+	"firebase.google.com/go/v4/messaging"
+)
 
 func main() {
 	app_services.LoadEnv()
 	app_services.InitMySQL()
 	app_services.InitFirebase()
+	const batchSize = 1500
 
-	const numWorkers int = 10
-	const batchSize = 500
-
-	var wg sync.WaitGroup
-	var mu sync.Mutex // Mutex para proteger el acceso a las variables compartidas
-
-	startID, failedTokensAux, ResponseAux, EventsReportedAux, err := processEventWithOutLimit("inicial", batchSize)
-	if err == nil {
-		StartID = startID
-		failedTokens = append(failedTokens, failedTokensAux...)
-		Messages = append(Messages, ResponseAux...)
-		EventsReported = append(EventsReported, EventsReportedAux...)
-	}
+	//batch 500 =>  eventos 48/s, notificacions  86/s, tiempo del test 73s
+	//batch 1000 => eventos 70/s, notificacions 110/s, tiempo del test 71s
+	//batch 1500 => eventos 82/s, notificacions 131/s, tiempo del test 73s
 	for {
 		startTime := time.Now()
-
-		log.Println("Iniciando proceso de envío de notificaciones en id ", StartID)
-		for i := 0; i < numWorkers; i++ {
-			minID := StartID + i*batchSize
-			maxID := minID + batchSize - 1
-			wg.Add(1)
-			go func(workerName int, minID, maxID int) {
-				defer wg.Done()
-				startID, failedTokensAux, ResponseAux, EventsReportedAux, err := processEventsWithLimit(workerName, minID, maxID)
-				if err == nil {
-					mu.Lock()
-					failedTokens = append(failedTokens, failedTokensAux...)
-					Messages = append(Messages, ResponseAux...)
-					EventsReported = append(EventsReported, EventsReportedAux...)
-					if workerName == numWorkers {
-						StartID = startID
-						log.Println("Worker", workerName, "actualizó el startID a", startID)
-					}
-					mu.Unlock()
-				}
-
-			}(i+1, minID, maxID)
+		log.Println("Iniciando proceso de envio de mensajes")
+		eventRepom, err := repositories.GetEventsWithOutstartID(batchSize, 0)
+		if err != nil || len(eventRepom) == 0 {
+			log.Printf("[Worker inicial] Error obteniendo eventos: %v", err)
+			return
 		}
-		wg.Wait()
-
-		timeSince := time.Since(startTime)
-
-		log.Printf("Inital ID: %d Este proceso demoró: %v envios totales %v, fallos totales %v ", StartID, timeSince, len(Messages), len(failedTokens))
-		//se guardar registro de las notificaciones exitosas
-		// repositories.BatchInsertVerificationMessages("gpsec", Messages, EventsReported)
-		//se eliminan los tokens que fallaron
-		repositories.BatchDeleteTokens(failedTokens)
-		//se cambian de estado los eventos que se enviaron
-		// repositories.UpdateVerificationEvents(EventsReported)
-		failedTokens = []string{}
-		Messages = []string{}
-		EventsReported = []models.Events{}
+		messages := utils.GenerateMessages(eventRepom)
+		var statusSened []*messaging.SendResponse
+		for i := 0; i < len(messages); i++ {
+			BatchResponse, err := repositories.SendMessage(messages[i])
+			if err != nil {
+				log.Printf("Error enviando mensajes: %v", err)
+				return
+			}
+			if len(BatchResponse.Responses) != 0 {
+				statusSened = append(statusSened, BatchResponse.Responses...)
+			}
+		}
+		totalTime := time.Since(startTime)
+		log.Println("Proceso de envio de mensajes finalizado en: ", totalTime, " segundos y envió ", len(statusSened), " mensajes")
 	}
 }
 
-func processEventWithOutLimit(workerID string, batchSize int) (int, []string, []string, []models.Events, error) {
-	eventRepom, lastId, err := repositories.GetEventsWithOutstartID(batchSize)
-	if err != nil || len(eventRepom) == 0 {
-		log.Printf("[Worker %s] Error obteniendo eventos: %v", workerID, err)
-		return 0, []string{}, []string{}, []models.Events{}, err
-	}
+// // Función para leer el número desde el archivo
+// func readNumberFromFile(filename string) (int, error) {
+// 	// Leer el archivo
+// 	data, err := ioutil.ReadFile(filename)
+// 	if err != nil {
+// 		return 0, fmt.Errorf("error al leer el archivo: %v", err)
+// 	}
 
-	messags := utils.GenetateMessages(eventRepom)
+// 	// Convertir el contenido a un número
+// 	number, err := strconv.Atoi(string(data))
+// 	if err != nil {
+// 		return 0, fmt.Errorf("error al convertir el contenido a un número: %v", err)
+// 	}
 
-	failedTokens, Response, err := repositories.SengMessage(messags, eventRepom)
-	if err != nil {
-		log.Printf("[Worker %s] Error enviandos eventos: %v", workerID, err)
-		return 0, failedTokens, Response, []models.Events{}, err
-	}
+// 	return number, nil
+// }
 
-	log.Printf("[Worker %s] Terminó de procesar eventos", workerID)
-	// wg.Done()
-	return lastId, failedTokens, Response, eventRepom, nil
-}
+// // Función para escribir el número en el archivo
+// func writeNumberToFile(filename string, number int) error {
+// 	// Convertir el número a string
+// 	newData := strconv.Itoa(number)
 
-func processEventsWithLimit(workerID int, minID int, maxID int) (int, []string, []string, []models.Events, error) {
-	eventRepom, lastId, err := repositories.GetEventsWithLimit(minID, maxID)
-	if err != nil {
-		log.Printf("[Worker %d] Error obteniendo eventos: %v", workerID, err)
-		// Si hay un error, retornar el mismo valor de startID
-		return minID, []string{}, []string{}, []models.Events{}, err
-	}
+// 	// Escribir el nuevo valor en el archivo
+// 	err := ioutil.WriteFile(filename, []byte(newData), 0644)
+// 	if err != nil {
+// 		return fmt.Errorf("error al escribir en el archivo: %v", err)
+// 	}
 
-	if len(eventRepom) == 0 {
-		// Si no hay más eventos, terminar el worker
-		return maxID, []string{}, []string{}, []models.Events{}, nil
-	}
+// 	return nil
+// }
 
-	messags := utils.GenetateMessages(eventRepom)
+// func main() {
+// 	// Ruta completa del archivo en tu escritorio (asegúrate de cambiar "tu_usuario" por tu nombre de usuario)
+// 	filename := "/Users/tu_usuario/Desktop/archivo.txt"
 
-	failedTokens, Response, err := repositories.SengMessage(messags, eventRepom)
-	if err != nil {
-		log.Printf("[Worker %d] Error enviandos eventos: %v", workerID, err)
-		return 0, failedTokens, Response, []models.Events{}, err
-	}
+// 	// Leer el número desde el archivo
+// 	number, err := readNumberFromFile(filename)
+// 	if err != nil {
+// 		fmt.Println(err)
+// 		return
+// 	}
 
-	log.Printf("[Worker %d] Terminó de procesar eventos", workerID)
+// 	// Incrementar el número (o cualquier otra operación)
+// 	number += 1
 
-	return lastId, failedTokens, Response, eventRepom, nil
-}
+// 	// Escribir el nuevo número en el archivo
+// 	err = writeNumberToFile(filename, number)
+// 	if err != nil {
+// 		fmt.Println(err)
+// 		return
+// 	}
+
+// 	fmt.Printf("El número ha sido incrementado a: %d\n", number)
+// }
