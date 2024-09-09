@@ -3,8 +3,11 @@ package services
 import (
 	"log"
 	"notifcations_server/database/repositories"
+	"notifcations_server/utils"
 	"sync"
 	"time"
+
+	"firebase.google.com/go/v4/messaging"
 )
 
 // Global variables to store token and expiration
@@ -18,6 +21,11 @@ var (
 	tokenExpiryTimeV2 time.Time
 	tokenLockV2       sync.Mutex
 )
+
+func InitFirebaseApi() {
+	GetAccessTokenWithCacheV1()
+	GetAccessTokenWithCacheV2()
+}
 
 // GetAccessTokenWithCache obtiene el token de acceso, usando uno cacheado si es válido.
 func GetAccessTokenWithCacheV1() (string, error) {
@@ -119,4 +127,31 @@ func SendFirebaseNotificationV2(deviceToken, title, body string) error {
 	}
 
 	return nil
+}
+
+func SendBulkFirebaseNotificationsV1(devicesTokens, title, body string) (*messaging.BatchResponse, error) {
+	//se genera un slice de mensajes a partir de los tokens de los dispositivos
+	messages, err := utils.GenerateMessages(title, body, devicesTokens)
+	if err != nil {
+		return nil, err
+	}
+	//se envian los mensajes a los dispositivos
+	response, err := repositories.SendMessagesV1(messages)
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+func SendBulkFirebaseNotificationsV2(devicesTokens, title, body string) (*messaging.BatchResponse, error) {
+	//se genera un slice de mensajes a partir de los tokens de los dispositivos
+	messages, err := utils.GenerateMessages(title, body, devicesTokens)
+	if err != nil {
+		return nil, err
+	}
+	//se envian los mensajes a los dispositivos
+	response, err := repositories.SendMessagesV2(messages)
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
 }

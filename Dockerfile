@@ -19,13 +19,11 @@ FROM gcr.io/distroless/base-debian12
 # Establecemos el directorio de trabajo en el contenedor
 WORKDIR /app
 
-COPY .env .
-
 COPY gd-notificacionesandroid-firebase-adminsdk-2v5rt-090a3f0a89.json .
 
 COPY notificaciones-push-1af7d-firebase-adminsdk-u0rd4-62ea0a3f0a.json .
-# Exponemos el puerto 1909
-EXPOSE 2020
+# Exponemos el puerto 2122
+EXPOSE 2122
 
 # Copiamos el ejecutable de la aplicación desde la imagen del constructor
 COPY --from=builder /build/notifcations_server ./notifcations_server

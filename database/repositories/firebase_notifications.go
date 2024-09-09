@@ -9,9 +9,11 @@ import (
 
 	"log"
 	"net/http"
+	"notifcations_server/app"
 	"os"
 	"time"
 
+	"firebase.google.com/go/v4/messaging"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
@@ -180,4 +182,20 @@ func SendFirebaseNotificationRequest(client *http.Client, accessToken, deviceTok
 	}
 
 	return nil
+}
+func SendMessagesV1(messages []*messaging.Message) (*messaging.BatchResponse, error) {
+	firebaseClient := app.GetFirebaseClientV1()
+	response, err := firebaseClient.SendEach(context.Background(), messages)
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+func SendMessagesV2(messages []*messaging.Message) (*messaging.BatchResponse, error) {
+	firebaseClient := app.GetFirebaseClientV2()
+	response, err := firebaseClient.SendEach(context.Background(), messages)
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
 }
