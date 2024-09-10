@@ -9,7 +9,7 @@ import (
 
 func SendMessage(messages []*messaging.Message) (*messaging.BatchResponse, error) {
 	firebaseClient := app_services.GetFirebaseClient()
-	response, err := firebaseClient.SendEachDryRun(context.Background(), messages)
+	response, err := firebaseClient.SendEach(context.Background(), messages)
 	if err != nil {
 		return nil, err
 	}
