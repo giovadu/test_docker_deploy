@@ -98,7 +98,7 @@ func BatchDeleteTokens(tokens []string) error {
 	return nil
 }
 
-func BatchInsertVerificationMessages(appname string, events []models.Events) error {
+func BatchInsertVerificationMessages(messageStatus []models.MessageStatusResponse) error {
 	db := app_services.GetConnection()
 
 	// Definir el tamaño del lote, puedes ajustarlo según el límite de tu servidor MySQL
@@ -107,34 +107,30 @@ func BatchInsertVerificationMessages(appname string, events []models.Events) err
 	placeholders := ""
 	insertCount := 0
 
-	for i := 0; i < len(events); i++ {
-		// Dividir el string de tokens por comas
-		tokens := strings.Split(events[i].Tokens, ",")
+	for i := 0; i < len(messageStatus); i++ {
 
-		for _, token := range tokens { // Iterar sobre los tokens ya divididos
-			// Construir los placeholders para la consulta
-			if insertCount > 0 {
-				placeholders += ", "
-			}
-			placeholders += "(?, ?, ?)"
-			vals = append(vals, appname, events[i].Event, token) // Usar el mensaje asociado al evento y el token
-
-			insertCount++
-
-			// Cuando alcanzamos el batchSize o es el último evento, ejecutar la inserción
-			if insertCount >= batchSize {
-				// Ejecutar la consulta de inserción en lotes
-				err := executeBatchInsert(db, placeholders, vals)
-				if err != nil {
-					return err
-				}
-
-				// Reiniciar para el siguiente lote
-				placeholders = ""
-				vals = []interface{}{}
-				insertCount = 0
-			}
+		if insertCount > 0 {
+			placeholders += ", "
 		}
+		placeholders += "(?, ?, ?)"
+		vals = append(vals, messageStatus[i].AppName, messageStatus[i].Message, messageStatus[i].Token) // Usar el mensaje asociado al evento y el token
+
+		insertCount++
+
+		// Cuando alcanzamos el batchSize o es el último evento, ejecutar la inserción
+		if insertCount >= batchSize {
+			// Ejecutar la consulta de inserción en lotes
+			err := executeBatchInsert(db, placeholders, vals)
+			if err != nil {
+				return err
+			}
+
+			// Reiniciar para el siguiente lote
+			placeholders = ""
+			vals = []interface{}{}
+			insertCount = 0
+		}
+
 	}
 
 	// Insertar los valores restantes que no alcanzaron a formar un lote completo

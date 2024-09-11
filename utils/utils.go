@@ -8,41 +8,45 @@ import (
 	"firebase.google.com/go/v4/messaging"
 )
 
-func GenerateMessages(events []models.Events) [][]*messaging.Message {
-	var messages []*messaging.Message
-	for _, event := range events {
-		alert := fmt.Sprintf("Alerta Vehículo %s", event.Plate)
-		// Dividir los tokens por comas
-		tokens := strings.Split(event.Tokens, ",")
-		// Recorrer los tokens y crear un mensaje para cada uno
-		for _, token := range tokens {
-			// Eliminar espacios en blanco alrededor del token
-			token = strings.TrimSpace(token)
+func GenerateMessages(events []models.Events) ([][]models.MessageStatus, []models.MessageStatusResponse) {
+	var messages []models.MessageStatus
+	var failedMessages []models.MessageStatusResponse
 
-			// Crear un mensaje solo si el token no está vacío
+	for _, event := range events {
+		eventMap := models.StructToMap(event)
+		if eventMap[event.Type] == 0 {
+			failedMessages = append(failedMessages, models.FormatStatusMessage(event, false, "Porque en su configuración tiene desactivado este tipo de alerta"))
+			continue
+		}
+
+		alert := fmt.Sprintf("Alerta Vehículo %s", event.Plate)
+		tokens := strings.Split(event.Tokens, ",")
+		for _, token := range tokens {
+			token = strings.TrimSpace(token)
 			if token != "" {
-				message := &messaging.Message{
-					Notification: &messaging.Notification{
-						Title: alert,
-						Body:  event.Event,
+				message := models.MessageStatus{
+					Message: &messaging.Message{
+						Notification: &messaging.Notification{
+							Title: alert,
+							Body:  event.Event,
+						},
+						Token: token,
 					},
-					Token: token,
+					Event: event,
 				}
 				messages = append(messages, message)
 			}
 		}
 	}
-	totalMessages := SplitMessagesIntoChunks(messages, 500)
-	return totalMessages
+
+	totalMessages := splitMessagesIntoChunks(messages, 500)
+	return totalMessages, failedMessages
 }
-func SplitMessagesIntoChunks(messages []*messaging.Message, chunkSize int) [][]*messaging.Message {
-	var chunks [][]*messaging.Message
-	for i := 0; i < len(messages); i += chunkSize {
-		end := i + chunkSize
-		if end > len(messages) {
-			end = len(messages)
-		}
-		chunks = append(chunks, messages[i:end])
+
+func splitMessagesIntoChunks(messages []models.MessageStatus, chunkSize int) [][]models.MessageStatus {
+	var chunks [][]models.MessageStatus
+	for chunkSize < len(messages) {
+		messages, chunks = messages[chunkSize:], append(chunks, messages[0:chunkSize:chunkSize])
 	}
-	return chunks
+	return append(chunks, messages)
 }
