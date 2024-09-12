@@ -19,7 +19,7 @@ func GenerateMessages(events []models.Events) ([][]models.MessageStatus, []model
 			continue
 		}
 
-		alert := fmt.Sprintf("Alerta Vehículo %s", event.Plate)
+		alert := fmt.Sprintf("Alerta %s", event.Plate)
 		tokens := strings.Split(event.Tokens, ",")
 		for _, token := range tokens {
 			token = strings.TrimSpace(token)
