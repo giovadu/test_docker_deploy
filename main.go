@@ -21,20 +21,15 @@ func main() {
 	var err error
 	init_counter, _, err = handleMessages(batchSize, init_counter)
 	if err != nil || init_counter == 0 {
-		log.Panic("error iniciando el programa: %v", err)
+		log.Printf("error iniciando el programa: %v", err)
 		return
 	}
-
-	//batch 500 =>  eventos 48/s, notificacions  86/s, tiempo del test 73s
-	//batch 1000 => eventos 70/s, notificacions 110/s, tiempo del test 71s
-	//batch 1500 => eventos 82/s, notificacions 131/s, tiempo del test 73s
-	//12150061
 
 	for {
 		init_counterAux, count, err := handleMessages(batchSize, init_counter)
 		if err != nil {
 			time.Sleep(3 * time.Second)
-			log.Println("error en el proceso de envío: %v", err)
+			log.Printf("error en el proceso de envío: %v", err)
 			continue
 		}
 		if init_counterAux != 0 && init_counterAux > init_counter {
@@ -93,13 +88,10 @@ func handleMessages(batchSize int, init_counter int) (int, int, error) {
 			}
 		}
 		final_messages = append(final_messages, failedMessages...)
-		// totalTime := time.Since(startTime)
 		go repositories.BatchInsertVerificationMessages(final_messages)
-		// log.Println("Proceso de envio de mensajes finalizado en: ", totalTime, " segundos y envió ", len(final_messages), " mensajes")
 	}()
 	lastEventID := eventRepom[0].ID
 
-	// Recorremos la lista y comparamos los IDs.
 	for _, event := range eventRepom {
 		if event.ID > lastEventID {
 			lastEventID = event.ID

@@ -10,6 +10,7 @@ import (
 
 var Tranlates = make(map[string]string)
 
+// TODO: AGREGAR EL CAMPO DIRECCIONES SI EXISTE
 func GetEventsWithOutstartID(startID, limit int) (events []models.Events, err error) {
 	// Inicializa el slice de eventos
 	events = make([]models.Events, 0)

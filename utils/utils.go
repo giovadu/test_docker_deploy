@@ -31,6 +31,22 @@ func GenerateMessages(events []models.Events) ([][]models.MessageStatus, []model
 							Body:  event.Event,
 						},
 						Token: token,
+						Android: &messaging.AndroidConfig{
+							Priority: "high",
+							Notification: &messaging.AndroidNotification{
+								Sound: "default",
+							},
+						},
+						APNS: &messaging.APNSConfig{
+							Payload: &messaging.APNSPayload{
+								Aps: &messaging.Aps{
+									Sound: "default",
+								},
+							},
+							Headers: map[string]string{
+								"apns-priority": "10",
+							},
+						},
 					},
 					Event: event,
 				}
