@@ -134,6 +134,8 @@ func SendFirebaseNotificationRequest(client *http.Client, accessToken, deviceTok
 				Title string `json:"title"`
 				Body  string `json:"body"`
 			} `json:"notification"`
+			Android *messaging.AndroidConfig `json:"android"`
+			APNS    *messaging.APNSConfig    `json:"apns"`
 		} `json:"message"`
 	}{
 		Message: struct {
@@ -142,6 +144,8 @@ func SendFirebaseNotificationRequest(client *http.Client, accessToken, deviceTok
 				Title string `json:"title"`
 				Body  string `json:"body"`
 			} `json:"notification"`
+			Android *messaging.AndroidConfig `json:"android"`
+			APNS    *messaging.APNSConfig    `json:"apns"`
 		}{
 			Token: deviceToken,
 			Notification: struct {
@@ -150,6 +154,22 @@ func SendFirebaseNotificationRequest(client *http.Client, accessToken, deviceTok
 			}{
 				Title: title,
 				Body:  body,
+			},
+			Android: &messaging.AndroidConfig{
+				Priority: "high",
+				Notification: &messaging.AndroidNotification{
+					Sound: "default",
+				},
+			},
+			APNS: &messaging.APNSConfig{
+				Payload: &messaging.APNSPayload{
+					Aps: &messaging.Aps{
+						Sound: "default",
+					},
+				},
+				Headers: map[string]string{
+					"apns-priority": "10",
+				},
 			},
 		},
 	}
