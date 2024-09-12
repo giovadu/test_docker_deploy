@@ -13,7 +13,6 @@ import (
 
 func main() {
 	init_counter := 0
-	app_services.LoadEnv()
 	app_services.InitMySQL()
 	repositories.GetEventsTranslated()
 	app_services.InitFirebase()
