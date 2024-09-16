@@ -13,9 +13,11 @@ func GenerateMessages(events []models.Events) ([][]models.MessageStatus, []model
 	var failedMessages []models.MessageStatusResponse
 
 	for _, event := range events {
+		//se valida si el usuario tiene este tipo de notificacion activa
 		eventMap := models.StructToMap(event)
 		if eventMap[event.Type] == 0 {
-			failedMessages = append(failedMessages, models.FormatStatusMessage(event, false, "Porque en su configuración tiene desactivado este tipo de alerta"))
+			message := fmt.Sprintf("Porque en su configuración tiene desactivado este tipo de alerta %s", event.Type)
+			failedMessages = append(failedMessages, models.FormatStatusMessage(event, false, message))
 			continue
 		}
 
@@ -24,11 +26,17 @@ func GenerateMessages(events []models.Events) ([][]models.MessageStatus, []model
 		for _, token := range tokens {
 			token = strings.TrimSpace(token)
 			if token != "" {
+				var body string
+				if event.Address != "" {
+					body = fmt.Sprintf("%s dirección aproximada: %s", event.Event, event.Address)
+				} else {
+					body = event.Event
+				}
 				message := models.MessageStatus{
 					Message: &messaging.Message{
 						Notification: &messaging.Notification{
 							Title: alert,
-							Body:  event.Event,
+							Body:  body,
 						},
 						Token: token,
 						Android: &messaging.AndroidConfig{

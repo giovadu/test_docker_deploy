@@ -28,13 +28,18 @@ type Events struct {
 	NotificationPowerCut        int    `gorm:"column:powerCut"`
 	NotificationLowBattery      int    `gorm:"column:lowBattery"`
 	NotificationSos             int    `gorm:"column:sos"`
+	Address                     string `gorm:"column:address"`
+	Equivalent                  string
 }
 
+// esto existe para validar que el usuario tenga activo el tipo de notificacion y enviarla si es el caso
 func StructToMap(e Events) map[string]int {
 	result := make(map[string]int)
 	result["door"] = e.NotificationDoor
 	result["ignitionOn"] = e.NotificationPowerOn
 	result["ignitionOff"] = e.NotificationPowerOff
+	result["powerOn"] = e.NotificationPowerOn
+	result["powerOff"] = e.NotificationPowerOff
 	result["deviceOverspeed"] = e.NotificationDeviceOverspeed
 	result["geofenceEnter"] = e.NotificationGeofenceEnter
 	result["geofenceExit"] = e.NotificationGeofenceExit

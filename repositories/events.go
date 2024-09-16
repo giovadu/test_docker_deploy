@@ -10,7 +10,8 @@ import (
 
 var Tranlates = make(map[string]string)
 
-// TODO: AGREGAR EL CAMPO DIRECCIONES SI EXISTE
+var AppNameEquivalents = make(map[string]string)
+
 func GetEventsWithOutstartID(startID, limit int) (events []models.Events, err error) {
 	// Inicializa el slice de eventos
 	events = make([]models.Events, 0)
@@ -45,13 +46,15 @@ func GetEventsWithOutstartID(startID, limit int) (events []models.Events, err er
 			u.notification_shock AS shock,
 			u.notification_powerCut AS powerCut,
 			u.notification_lowbattery AS lowBattery,
-			u.notification_sos AS sos
+			u.notification_sos AS sos,
+			COALESCE(p.address, '') AS address
         FROM
-            tracker.tc_events e
-            JOIN tracker.tc_devices d ON d.id = e.deviceid
-            LEFT JOIN tracker.tc_geofences g ON e.geofenceid = g.id
-            JOIN tracker.tc_notification_locate n ON e.type = n.original
-            JOIN tracker.tc_users u ON FIND_IN_SET(d.name, u.devices) > 0
+            tc_events e
+            JOIN tc_devices d ON d.id = e.deviceid
+            LEFT JOIN tc_geofences g ON e.geofenceid = g.id
+            JOIN tc_notification_locate n ON e.type = n.original
+			JOIN tc_positions p ON e.positionid = p.id
+            JOIN tc_users u ON FIND_IN_SET(d.name, u.devices) > 0
         WHERE
             u.tokens <> ''
 			AND d.active = 1
@@ -89,7 +92,9 @@ func GetEventsWithOutstartID(startID, limit int) (events []models.Events, err er
 			&event.NotificationShock,
 			&event.NotificationPowerCut,
 			&event.NotificationLowBattery,
-			&event.NotificationSos); err != nil {
+			&event.NotificationSos,
+			&event.Address,
+		); err != nil {
 			return nil, fmt.Errorf("error al preparar la consulta: %w", err)
 		}
 		if event.Type == "geofenceExit" || event.Type == "geofenceEnter" {
@@ -108,6 +113,7 @@ func GetEventsWithOutstartID(startID, limit int) (events []models.Events, err er
 			}
 
 		}
+		event.Equivalent = AppNameEquivalents[event.AppName]
 		events = append(events, event)
 	}
 	if err := rows.Err(); err != nil {
@@ -117,8 +123,9 @@ func GetEventsWithOutstartID(startID, limit int) (events []models.Events, err er
 	return events, nil
 }
 func GetEventsTranslated() {
+	Tranlates = make(map[string]string)
 	db := app_services.GetConnection()
-	rows, err := db.QueryContext(context.Background(), `SELECT  original, translate  FROM tracker.tc_notification_locate `)
+	rows, err := db.QueryContext(context.Background(), `SELECT  original, translate  FROM tc_notification_locate`)
 	if err != nil {
 		panic(fmt.Errorf("error al preparar la consulta: %w", err))
 	}
@@ -130,6 +137,26 @@ func GetEventsTranslated() {
 			panic(fmt.Errorf("error al preparar la consulta: %w", err))
 		}
 		Tranlates[Original] = Translate
+	}
+	if err := rows.Err(); err != nil {
+		panic(fmt.Errorf("error durante la iteración de resultados: %w", err))
+	}
+}
+func GetAppnameEquivalent() {
+	AppNameEquivalents = make(map[string]string)
+	db := app_services.GetConnection()
+	rows, err := db.QueryContext(context.Background(), `SELECT appname, firebase_key  FROM  tc_parameters `)
+	if err != nil {
+		panic(fmt.Errorf("error al preparar la consulta: %w", err))
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var AppName string
+		var Equivalent string
+		if err := rows.Scan(&AppName, &Equivalent); err != nil {
+			panic(fmt.Errorf("error al preparar la consulta: %w", err))
+		}
+		AppNameEquivalents[AppName] = Equivalent
 	}
 	if err := rows.Err(); err != nil {
 		panic(fmt.Errorf("error durante la iteración de resultados: %w", err))

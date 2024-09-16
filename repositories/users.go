@@ -9,52 +9,6 @@ import (
 	"strings"
 )
 
-func UpdateVerificationEvents(events []models.Events) error {
-	var ids []int
-	for i := 0; i < len(events); i++ {
-		ids = append(ids, events[i].ID)
-	}
-
-	// Verificar si la lista de IDs está vacía
-	if len(ids) == 0 {
-		log.Println("No hay eventos para actualizar.")
-		return nil // No hacer nada si no hay IDs para actualizar
-	}
-
-	db := app_services.GetConnection()
-
-	// Construir la consulta de actualización
-	query := `UPDATE tc_events SET sended = 1, notified = NOW() WHERE Id IN (`
-	vals := []interface{}{}
-
-	// Construir los placeholders y recolectar los valores
-	for i, id := range ids {
-		if i > 0 {
-			query += ", "
-		}
-		query += "?"
-		vals = append(vals, id)
-	}
-
-	query += ")"
-
-	stmt, err := db.Prepare(query)
-	if err != nil {
-		return fmt.Errorf("error preparando la consulta: %v", err)
-	}
-	defer stmt.Close()
-
-	// Ejecutar la consulta en una goroutine
-
-	_, err = stmt.Exec(vals...)
-
-	if err != nil {
-		log.Printf("error ejecutando la consulta UpdateVerificationEvents: %v", err)
-	}
-
-	return nil
-}
-
 func BatchDeleteTokens(tokens []string) error {
 	var tokens_parsed []string
 	for i := 0; i < len(tokens); i++ {

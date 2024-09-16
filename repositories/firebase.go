@@ -7,8 +7,16 @@ import (
 	"firebase.google.com/go/v4/messaging"
 )
 
-func SendMessage(messages []*messaging.Message) (*messaging.BatchResponse, error) {
-	firebaseClient := app_services.GetFirebaseClient()
+func SendMessageV1(messages []*messaging.Message) (*messaging.BatchResponse, error) {
+	firebaseClient := app_services.GetFirebaseClientv1()
+	response, err := firebaseClient.SendEach(context.Background(), messages)
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+func SendMessageV2(messages []*messaging.Message) (*messaging.BatchResponse, error) {
+	firebaseClient := app_services.GetFirebaseClientv2()
 	response, err := firebaseClient.SendEach(context.Background(), messages)
 	if err != nil {
 		return nil, err

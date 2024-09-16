@@ -9,14 +9,33 @@ import (
 	"time"
 
 	"firebase.google.com/go/v4/messaging"
+	env "github.com/joho/godotenv"
 )
 
+func LoadEnv() {
+	err := env.Load(".env")
+	if err != nil {
+		panic(err)
+	}
+}
 func main() {
+	LoadEnv()
 	init_counter := 0
 	app_services.InitMySQL()
-	repositories.GetEventsTranslated()
 	app_services.InitFirebase()
-	const batchSize = 500
+
+	// Ahora ejecutar cada 8 horas en una goroutine
+	go func() {
+		for {
+			log.Println("Ejecutando actualización periódica de eventos y equivalencias de appname...")
+			repositories.GetEventsTranslated()
+			repositories.GetAppnameEquivalent()
+			log.Println("Actualización periódica completa. Esperando 8 horas para la próxima ejecución.")
+			time.Sleep(24 * time.Hour) // Espera de 8 horas
+		}
+	}()
+
+	const batchSize = 1000
 	var err error
 	init_counter, _, err = handleMessages(batchSize, init_counter)
 	if err != nil || init_counter == 0 {
@@ -38,7 +57,6 @@ func main() {
 		} else {
 			time.Sleep(2 * time.Second)
 		}
-
 	}
 }
 func handleMessages(batchSize int, init_counter int) (int, int, error) {
@@ -63,17 +81,35 @@ func handleMessages(batchSize int, init_counter int) (int, int, error) {
 		//ciclo para enviar mensajes por batches
 		for i := 0; i < len(messages); i++ {
 			messages_to_compare = append(messages_to_compare, messages[i]...)
-			var messages_to_send []*messaging.Message
+			var messages_to_send_v1 []*messaging.Message
+			var messages_to_send_v2 []*messaging.Message
 			for j := 0; j < len(messages[i]); j++ {
-				messages_to_send = append(messages_to_send, messages[i][j].Message)
+				if messages[i][j].Event.Equivalent == "v1" {
+					messages_to_send_v1 = append(messages_to_send_v1, messages[i][j].Message)
+				} else {
+					messages_to_send_v2 = append(messages_to_send_v2, messages[i][j].Message)
+				}
 			}
-			BatchResponse, err := repositories.SendMessage(messages_to_send)
-			if err != nil {
-				log.Printf("Error enviando mensajes: %v", err)
-				return
+			if len(messages_to_send_v1) != 0 {
+				BatchResponse, err := repositories.SendMessageV1(messages_to_send_v1)
+				if err != nil {
+					log.Printf("Error enviando mensajes: %v", err)
+					return
+				}
+				if len(BatchResponse.Responses) != 0 {
+					total_message_sended_in_batchs = append(total_message_sended_in_batchs, BatchResponse.Responses...)
+				}
 			}
-			if len(BatchResponse.Responses) != 0 {
-				total_message_sended_in_batchs = append(total_message_sended_in_batchs, BatchResponse.Responses...)
+			if len(messages_to_send_v2) != 0 {
+				BatchResponseV2, err := repositories.SendMessageV2(messages_to_send_v2)
+				if err != nil {
+					log.Printf("Error enviando mensajes: %v", err)
+					return
+				}
+
+				if len(BatchResponseV2.Responses) != 0 {
+					total_message_sended_in_batchs = append(total_message_sended_in_batchs, BatchResponseV2.Responses...)
+				}
 			}
 		}
 		//vamos a analizar la respuesta
